@@ -1,18 +1,16 @@
-use tokio::sync::mpsc;
-use tokio::time::{sleep, Duration};
+use chrono::Utc;
+use rand::rngs::SmallRng;
+use rand::Rng;
+use rand::SeedableRng;
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
-use std::sync::Arc;
-use tokio::sync::Mutex;
-use chrono::Utc;
-use rand::Rng;
-use rand::rngs::SmallRng;
-use rand::SeedableRng;
+use tokio::sync::mpsc;
+use tokio::time::{sleep, Duration};
 
 // Messages for communication between threads
 #[derive(Debug, Clone)]
 enum Message {
-    WriteRequest(String, String), // (timestamp, commit_number)
+    WriteRequest(String, String),   // (timestamp, commit_number)
     PrepareRequest(String, String), // (timestamp, commit_number)
     PrepareResponse(bool),
     CommitRequest,
@@ -41,7 +39,10 @@ impl Participant {
                         self.buffer = Some((timestamp, commit_number));
                     }
 
-                    self.coordinator_tx.send(Message::PrepareResponse(is_ready)).await.unwrap();
+                    self.coordinator_tx
+                        .send(Message::PrepareResponse(is_ready))
+                        .await
+                        .unwrap();
                 }
                 Message::CommitRequest => {
                     if let Some((timestamp, commit_number)) = self.buffer.take() {
@@ -81,11 +82,20 @@ impl Coordinator {
         while let Some(msg) = rx.recv().await {
             match msg {
                 Message::WriteRequest(timestamp, commit_number) => {
-                    println!("Coordinator: Received write request: {} at {}", commit_number, timestamp);
+                    println!(
+                        "Coordinator: Received write request: {} at {}",
+                        commit_number, timestamp
+                    );
 
                     // Phase 1: Prepare
                     for participant in &self.participants {
-                        participant.send(Message::PrepareRequest(timestamp.clone(), commit_number.clone())).await.unwrap();
+                        participant
+                            .send(Message::PrepareRequest(
+                                timestamp.clone(),
+                                commit_number.clone(),
+                            ))
+                            .await
+                            .unwrap();
                     }
 
                     let mut all_prepared = true;
@@ -155,7 +165,13 @@ async fn main() {
         for i in 1..=5 {
             let timestamp = Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
             let commit_number = i.to_string();
-            coordinator_tx.send(Message::WriteRequest(timestamp.clone(), commit_number.clone())).await.unwrap();
+            coordinator_tx
+                .send(Message::WriteRequest(
+                    timestamp.clone(),
+                    commit_number.clone(),
+                ))
+                .await
+                .unwrap();
 
             // Wait for the result
             match client_rx.recv().await {
