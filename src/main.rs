@@ -78,7 +78,7 @@ struct Coordinator {
 }
 
 impl Coordinator {
-    async fn run(mut self, mut rx: mpsc::Receiver<Message>) {
+    async fn run(self, mut rx: mpsc::Receiver<Message>) {
         while let Some(msg) = rx.recv().await {
             match msg {
                 Message::WriteRequest(timestamp, commit_number) => {
