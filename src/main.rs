@@ -47,16 +47,22 @@ impl Participant {
                 Message::CommitRequest => {
                     if let Some((timestamp, commit_number)) = self.buffer.take() {
                         let log_entry = format!("{} commit {}\n", timestamp, commit_number);
-                        let file_name = format!("participant_{}.txt", self.id);
+                        let file_name = format!("logs/participant_{}.log", self.id);
 
                         let mut file = OpenOptions::new()
                             .append(true)
                             .create(true)
-                            .open(file_name)
+                            .open(&file_name)
                             .await
                             .unwrap();
 
                         file.write_all(log_entry.as_bytes()).await.unwrap();
+                        file.sync_data().await.unwrap();
+
+                        if let Some(parent) = std::path::Path::new(&file_name).parent() {
+                            tokio::fs::File::open(parent).await.unwrap().sync_all().await.unwrap();
+                        }
+
                     }
                     self.coordinator_tx.send(Message::Ack).await.unwrap();
                 }
